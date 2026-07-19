@@ -71,7 +71,7 @@ The scripts are meant to be run in the following order. Each stage consumes the 
 
 | Script | Description |
 |---|---|
-| `main_tep_analysis` | Computes TEPs for healthy controls and stroke patients (pre- and post-stimulation), correlates TEP measures with clinical outcomes, and generates the final figures used for publication. |
+| `main_tep_analysis` | Computes TEPs for healthy controls and stroke patients (pre- and post-rehabilitation), correlates TEP measures with clinical outcomes, and generates the final figures used for publication. |
 
 ## Usage
 
