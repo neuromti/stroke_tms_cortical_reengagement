@@ -15,7 +15,8 @@ This repository contains the processing pipeline used to compute TMS-evoked pote
 ├── custom_functions/          # Custom & third-party functions required by the main scripts
 ├── def_pro.m                  # Defines project directories and creates a backup copy
 ├── local_settings.config      # Paths to custom_functions and EEGLAB (edit before running)
-├── pre_pulling.m
+├── pre_pulling_HC.m           # Data pulling for healthy controls
+├── pre_pulling_ST.m           # Data pulling for stroke patients
 ├── pre_cleaning.m
 ├── pre_epoching.m
 ├── pre_erp.m
@@ -31,7 +32,7 @@ The scripts are meant to be run in the following order. Each stage consumes the 
                         def_pro  (project setup, run first)
                               │
                               ▼
-                        pre_pulling
+                pre_pulling_HC  /  pre_pulling_ST
                               │
                               ▼
                         pre_cleaning
@@ -62,7 +63,8 @@ The scripts are meant to be run in the following order. Each stage consumes the 
 
 | Script | Description |
 |---|---|
-| `pre_pulling` | Reads raw `.xdf` files, extracts the relevant data streams (EEG, markers, etc.), and saves them into `.mat` files for downstream processing. |
+| `pre_pulling_HC` | Reads raw `.xdf` files for the **healthy control** group, extracts the relevant data streams (EEG, markers, etc.), and saves them into `.mat` files for downstream processing. |
+| `pre_pulling_ST` | Reads raw `.xdf` files for the **stroke** group, extracts the relevant data streams (EEG, markers, etc.), and saves them into `.mat` files for downstream processing. |
 | `pre_cleaning` | Takes the `.mat` files produced by `pre_pulling` and cleans the data (e.g. artifact removal, filtering, bad channel/segment handling). |
 | `pre_epoching` | Epochs the cleaned continuous data around events of interest (e.g. TMS pulses). |
 | `pre_erp` | Computes the event-related potential (ERP) for each individual trial. |
@@ -78,7 +80,7 @@ The scripts are meant to be run in the following order. Each stage consumes the 
 1. Update `local_settings.config` with your local EEGLAB (and `custom_functions`) paths.
 2. Run `def_pro` to set up project directories and create a backup.
 3. Update the data paths inside each script to point to your local server/data location.
-4. Run the preprocessing stages in order: `pre_pulling` → `pre_cleaning` → `pre_epoching` → `pre_erp`.
+4. Run the preprocessing stages in order: `pre_pulling_HC` and/or `pre_pulling_ST` → `pre_cleaning` → `pre_epoching` → `pre_erp`.
 5. Run `main_tep_analysis` to compute TEPs, run the clinical correlations, and generate the publication figures.
 
 ## Requirements
