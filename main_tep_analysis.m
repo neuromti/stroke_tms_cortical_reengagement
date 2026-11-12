@@ -2,32 +2,32 @@
 %  Project: INTENS 2019
 %  Task:    ERP/TEP
 % -------------------------------------------------------------------------
-
+ 
 % -- clear workspace, close all figures, and clear command window
 clear all; close all; clc;
-
+ 
 % -- initialize project settings and enable saving of results
-pout = def_pro('IA_23a', 'saveWork', false, 'loadEEGLAB', true);
-
+pout = def_pro('IA_23a', 'saveWork', true, 'loadEEGLAB', true);
+ 
 %% -- diary and load eeglab
-
+ 
 if pout.saveWork
     % -- extract timestamp information from archive path
     time = strsplit(pout.archive_NIN_path, filesep);
     time = time{contains(time, 'NIN')};
-
+ 
     % -- create diary file for software version tracking
     diary([pout.archive_path, 'softare_version', strrep(time, 'NIN', ''), '.txt'])
-
+ 
     % -- launch EEGLAB
     if pout.loadEEGLAB
         eeglab;
     end
     eegsys = nin_eeg_system('BrainVision');
-
+ 
     % -- display current MATLAB version
     disp(['Matlab ', version]);
-
+ 
     diary off
 else
     % -- launch EEGLAB
@@ -36,42 +36,42 @@ else
     end
     eegsys = nin_eeg_system('BrainVision');
 end
-
+ 
 %% -- define input parameters
-
+ 
 % -- define input directory
 pout.path_in = '/mnt/data/data09/FinalizedStudies/2026_INTENS_MSK/data_out/Epoched_IA_23a/';
-
+ 
 % -- define output directory
 pout.path_out = ['/mnt/data/data09/FinalizedStudies/2026_INTENS_MSK/data_results/', pout.function_name, '_', pout.pro_name, '_', nin_ctime, '/'];
-
+ 
 % -- define gateway directory
 pout.path_gateway = '/mnt/data/data09/FinalizedStudies/2026_INTENS_MSK/data_out/gateway/';
-
+ 
 % -- define supplementary directory and filename
 pout.path_supplementary = '/mnt/data/data09/FinalizedStudies/2026_INTENS_MSK/Supplementary/';
 pout.demog_file = 'Demog_INTENS_2019.xlsx';
 pout.recording_file = 'Recordings_INTENS_2019.xlsx';
 pout.clin_meas = 'IN-TENS_Clinical_assessments_scores_all.xlsx';
 pout.clin_meas_hand = 'FMUE_best_all_hand.xlsx';
-
+ 
 %% -- create data out folder
-
+ 
 % -- define output path
 if ~exist(pout.path_out, 'dir') && pout.saveWork
     mkdir(pout.path_out);
 end
-
+ 
 %% -- run following parts of code
-
-flag_keep = false;
-
+ 
+% flag_keep = false;
+ 
 flag_plot_group_visit_stimulation_C3_C4 = true;
 flag_topoplot_group_visit_stimulation = false;
 flag_plot_group_visit_diff = false;
-
+ 
 %% -- read supplementary
-
+ 
 % -- read data and convet the into structure
 [~, demogH, demog] = xlsread([pout.path_supplementary, pout.demog_file]);
 demog = demog(:, 1:size(demogH, 2));
@@ -81,7 +81,7 @@ header(strcmpi(header, 'Condition')) = {'condition'};
 T = cell2table(demog(2:end, :));
 T.Properties.VariableNames = header;
 demog = table2struct(T);
-
+ 
 [~, recordFileH, recordFile] = xlsread([pout.path_supplementary, pout.recording_file]);
 recordFile = recordFile(:, 1:size(recordFileH, 2));
 header = lower(recordFile(1, :));
@@ -90,27 +90,27 @@ header = header(ix);
 T = cell2table(recordFile(2:end, ix));
 T.Properties.VariableNames = header;
 recordFile = table2struct(T);
-
+ 
 clear T header ix
-
+ 
 %% -- load clinical data
-
+ 
 [~, clinH, clin] = xlsread([pout.path_supplementary, pout.clin_meas]);
 clin = clin(:, 1:size(clinH, 2));
 header = clin(1, :);
 T = cell2table(clin(2:end, :));
 T.Properties.VariableNames = header;
 clin = table2struct(T);
-
+ 
 [~, clinH_hand, clin_hand] = xlsread([pout.path_supplementary, pout.clin_meas_hand]);
 k = 1;
 while k <= size(clin, 1)
     clin(k).fmue_hand = clin_hand{strcmpi(clinH_hand(:, 1), clin(k).part_id), strcmpi(clinH_hand(1, :), clin(k).ses_id)};
     k = k + 1;
 end
-
+ 
 %% -- define constants
-
+ 
 sub = unique([{demog.sub}, {recordFile.sub}], 'stable');
 condition = {'HC', 'ST'};
 visit = {'V1', 'V2', 'V3', 'V4', 'V5', 'V6'};
@@ -119,87 +119,87 @@ stimulations = {'TMS', 'SHAM'};
 stimulation_side = {'Dominant', 'Nondominant', 'Contralesional', 'Ipsilesional'};
 phases = cellfun(@num2str, (num2cell(0:45:315)), 'un', 0);
 npeaks = {'P25', 'N45', 'P70', 'N100', 'P180'};
-
+ 
 %% -- load ERP data session by session
-
+ 
 try
-
+ 
     % -- load previously compiled ERP dataset
     load([pout.path_gateway, 'ERP_', pout.pro_name, '.mat']);
-
+ 
 catch
-
+ 
     % -- get all ERP files from input directory
     fileList = dir([pout.path_in '*.mat' ]);
     fileList = {fileList.name};
     fileList = fileList(~contains(fileList, 'analysis_report.mat'));
-
+ 
     erp_all = [];
     k = 1;
     while k <= length(fileList)
-
+ 
         % -- display loading progres
         disp(['Loading file ', num2str(k), '\', num2str(length(fileList))]);
-
+ 
         % -- load data
         load([pout.path_in, fileList{k}]);
-
+ 
         % -- extract stimulation side from filename
         [erp.stim_side] = deal(strrep(char(nin_strsplit({erp(1).filename}, 5, 5, 'spliter', '_')), '.mat', ''));
-
+ 
         % -- append current session data
         erp_all = [erp_all; erp];
-
+ 
         k  = k + 1;
-
+ 
     end
-
+ 
     erp = erp_all;
-
+ 
     %% -- merge ERP data with demographic and recording data
-
+ 
     % -- add demographic information
     erp = nin_merge_structures(erp, demog, {'sub'});
-
+ 
     % -- remove obsolete field
     erp = rmfield(erp, 'condition');
-
+ 
     % -- add recording metadata
     erp = nin_merge_structures(erp, recordFile, {'sub'; 'session'});
-
+ 
     % -- remove entries with missing trial counts
     erp = erp(~isnan([erp.N]));
-
+ 
     % -- save compiled ERP dataset
     if pout.saveWork
         save([pout.path_gateway, 'ERP_', pout.pro_name, '.mat'], 'erp', '-v7.3');
     end
-
+ 
     clear erp_all s
-
+ 
 end
-
+ 
 %% -- TEP data subject by subject and gather data
-
+ 
 try
-
+ 
     % -- load previously compiled TEP dataset
     load([pout.path_gateway, 'TEP_', pout.pro_name, '.mat']);
-
+ 
 catch
-
+ 
     % -- extract peak-based TEP measures
     tep = nin_erp_measure(erp, 'peak');
-
+ 
     % -- save compiled TEP dataset
     if pout.saveWork
         save([pout.path_gateway, 'TEP_', pout.pro_name, '.mat'], 'tep', '-v7.3');
     end
-
+ 
 end
-
+ 
 %% -- exclude subjects based on visual inspection or external decisions
-
+ 
 % -- sub, stim, visit, side
 toRemove = {'KoEb', 'TMS', 'V1', 'Dominant';...
     'KoEb', 'TMS', 'V1', 'Nondominant';...
@@ -226,30 +226,30 @@ toRemove = {'KoEb', 'TMS', 'V1', 'Dominant';...
     'WiLu', 'TMS', 'V4', 'Ipsilesional';...
     'ZaRo', 'TMS', 'V2', 'Contralesional';...
     'ZaRo', 'TMS', 'V2', 'Ipsilesional';};
-
+ 
 % -- identify entries matching exclusion criteria
 ix = true(size(erp, 2), 1);
 k = 1;
 while k <= size(toRemove, 1)
-
+ 
     % -- find matching records
     [~, cix] = nin_subselect_dstruct(erp, 'sub', toRemove{k, 1}, 'stimulation', toRemove{k, 2}, 'visit', toRemove{k, 3}, 'stim_side', toRemove{k, 4});
-
+ 
     % -- mark records for removal
     ix = ix & ~cix;
-
+ 
     k = k + 1;
-
+ 
 end
-
+ 
 % -- keep only records that passed exclusion criteria
 erp = erp(ix);
 tep = tep(ix);
-
+ 
 clear ix cix
-
+ 
 %% -- remove sessions with technical issue
-
+ 
 [sanity_file_DC{1, 1}, sanity_file_NI{1, 1}, ix(:, 1)] = erp_sanity_technical(erp, sub, visit, demog, '0');
 [sanity_file_DC{2, 1}, sanity_file_NI{2, 1}, ix(:, 2)] = erp_sanity_technical(erp, sub, visit, demog, '45');
 [sanity_file_DC{3, 1}, sanity_file_NI{3, 1}, ix(:, 3)] = erp_sanity_technical(erp, sub, visit, demog, '90');
@@ -260,27 +260,25 @@ clear ix cix
 [sanity_file_DC{8, 1}, sanity_file_NI{8, 1}, ix(:, 8)] = erp_sanity_technical(erp, sub, visit, demog, '315');
 [sanity_file_DC{9, 1}, sanity_file_NI{9, 1}, ix(:, 9)] = erp_sanity_technical(erp, sub, visit, demog, 'all');
 ix  = logical(prod(ix, 2));
-
+ 
 % -- keep only records that passed exclusion criteria
 erp = erp(ix);
 tep = tep(ix);
-
+ 
 clear ix
-
+ 
 %% -- remove subjects and sessions with incomplete phase data
-
+ 
 [sub_DC, sub_NI, ~, ~, ix] = erp_sanity_phase(erp, sub, visit, demog, phases);
-
+ 
 % -- keep only records that passed exclusion criteria
 erp = erp(ix);
 tep = tep(ix);
-
+ 
 clear ix
-
+ 
 %% -- keep just common sub from sessions V2 and V5
-
-if flag_keep
-
+  
     % -- sub, stim, visit, side
     toKeep = {'AmKa', 'TMS', 'V1', 'Dominant';...
         'AmKa', 'TMS', 'V1', 'Nondominant';...
@@ -338,89 +336,32 @@ if flag_keep
         'SoFa', 'TMS', 'V2', 'Ipsilesional';...
         'SoFa', 'TMS', 'V5', 'Contralesional';...
         'SoFa', 'TMS', 'V5', 'Ipsilesional';};
-
-else
-
-    toKeep = {'AmKa', 'TMS', 'V1', 'Dominant';...
-        'AmKa', 'TMS', 'V1', 'Nondominant';...
-        'KoCh', 'TMS', 'V1', 'Dominant';...
-        'KoCh', 'TMS', 'V1', 'Nondominant';...
-        'RaPa', 'TMS', 'V1', 'Dominant';...
-        'RaPa', 'TMS', 'V1', 'Nondominant';...
-        'RaSi', 'TMS', 'V1', 'Dominant';...
-        'RaSi', 'TMS', 'V1', 'Nondominant';...
-        'SoMa', 'TMS', 'V1', 'Dominant';...
-        'SoMa', 'TMS', 'V1', 'Nondominant';...
-        'TrGe', 'TMS', 'V1', 'Dominant';...
-        'TrGe', 'TMS', 'V1', 'Nondominant';...
-        'VoAn', 'TMS', 'V1', 'Dominant';...
-        'VoAn', 'TMS', 'V1', 'Nondominant';...
-        'VoHe', 'TMS', 'V1', 'Dominant';...
-        'VoHe', 'TMS', 'V1', 'Nondominant';...
-        'VoSa', 'TMS', 'V1', 'Dominant';...
-        'VoSa', 'TMS', 'V1', 'Nondominant';...
-        'WiBe', 'TMS', 'V1', 'Dominant';...
-        'WiBe', 'TMS', 'V1', 'Nondominant';...
-        'WiDo', 'TMS', 'V1', 'Dominant';...
-        'WiDo', 'TMS', 'V1', 'Nondominant';...
-        'ZaBe', 'TMS', 'V1', 'Dominant';...
-        'ZaBe', 'TMS', 'V1', 'Nondominant';...
-        'AmWo', 'TMS', 'V2', 'Contralesional';...
-        'AmWo', 'TMS', 'V2', 'Ipsilesional';...
-        'AmWo', 'TMS', 'V5', 'Contralesional';...
-        'AmWo', 'TMS', 'V5', 'Ipsilesional';...
-        'BuUl', 'TMS', 'V2', 'Contralesional';...
-        'BuUl', 'TMS', 'V2', 'Ipsilesional';...
-        'BuUl', 'TMS', 'V5', 'Contralesional';...
-        'BuUl', 'TMS', 'V5', 'Ipsilesional';...
-        'EiHe', 'TMS', 'V2', 'Contralesional';...
-        'EiHe', 'TMS', 'V2', 'Ipsilesional';...
-        'EiHe', 'TMS', 'V5', 'Contralesional';...
-        'EiHe', 'TMS', 'V5', 'Ipsilesional';...
-        'FuMa', 'TMS', 'V2', 'Contralesional';...
-        'FuMa', 'TMS', 'V2', 'Ipsilesional';...
-        'FuMa', 'TMS', 'V5', 'Contralesional';...
-        'FuMa', 'TMS', 'V5', 'Ipsilesional';...
-        'GuWi', 'TMS', 'V2', 'Contralesional';...
-        'GuWi', 'TMS', 'V2', 'Ipsilesional';...
-        'GuWi', 'TMS', 'V5', 'Contralesional';...
-        'GuWi', 'TMS', 'V5', 'Ipsilesional';...
-        'MeRu', 'TMS', 'V2', 'Contralesional';...
-        'MeRu', 'TMS', 'V2', 'Ipsilesional';...
-        'MeRu', 'TMS', 'V5', 'Contralesional';...
-        'MeRu', 'TMS', 'V5', 'Ipsilesional';...
-        'SoFa', 'TMS', 'V2', 'Contralesional';...
-        'SoFa', 'TMS', 'V2', 'Ipsilesional';...
-        'SoFa', 'TMS', 'V5', 'Contralesional';...
-        'SoFa', 'TMS', 'V5', 'Ipsilesional';};
-
-end
-
+  
 % -- identify entries matching inclusion criteria
 ix = false(size(erp, 2), 1);
 k = 1;
 while k <= size(toKeep, 1)
-
+ 
         % -- find matching records
     [~, cix] = nin_subselect_dstruct(erp, 'sub', toKeep{k, 1}, 'stimulation', toKeep{k, 2}, 'visit', toKeep{k, 3}, 'stim_side', toKeep{k, 4});
-
+ 
         % -- mark records
     ix = ix | cix;
-
+ 
     k = k + 1;
-
+ 
 end
-
+ 
 % -- keep only records that passed exclusion criteria
 erp = erp(ix);
 tep = tep(ix);
-
+ 
 clear ix cix
-
+ 
 %% -- display demographic characteristics of HC and ST groups at V2 and V5
-
+ 
 cvisitALL = unique({erp.visit});
-
+ 
 % -- select HC cohort
 cerpHC = nin_subselect_dstruct(erp, 'visit', 'V1', 'stimulation', 'TMS', 'tphase', 'all', 'stim_side', 'Dominant');
 disp(['HC: N = ', num2str(size(cerpHC, 2))]);
@@ -432,7 +373,7 @@ HCL = nin_subselect_dstruct(cerpHC, 'Lesion_Hand', 'L');
 disp(['HC: L = ', num2str(size(HCL, 2))]);
 HCR = nin_subselect_dstruct(cerpHC, 'Lesion_Hand', 'R');
 disp(['HC: R = ', num2str(size(HCR, 2))]);
-
+ 
 % -- select stroke cohort
 cerpST = nin_subselect_dstruct(erp, 'visit', 'V2', 'stimulation', 'TMS', 'tphase', 'all', 'stim_side', 'Contralesional');
 disp(['ST: N = ', num2str(size(cerpST, 2))]);
@@ -444,7 +385,7 @@ STL = nin_subselect_dstruct(cerpST, 'Lesion_Hand', 'L');
 disp(['ST: L = ', num2str(size(STL, 2))]);
 STR = nin_subselect_dstruct(cerpST, 'Lesion_Hand', 'R');
 disp(['ST: R = ', num2str(size(STR, 2))]);
-
+ 
 if any(strcmpi(cvisitALL, 'V5'))
     cerpST = nin_subselect_dstruct(erp, 'visit', 'V5', 'stimulation', 'TMS', 'tphase', 'all', 'stim_side', 'Contralesional');
     disp(['ST: N = ', num2str(size(cerpST, 2))]);
@@ -457,66 +398,66 @@ if any(strcmpi(cvisitALL, 'V5'))
     STR = nin_subselect_dstruct(cerpST, 'Lesion_Hand', 'R');
     disp(['ST: R = ', num2str(size(STR, 2))]);
 end
-
+ 
 clear cerpHC HCF HCM HCL HCR cerpST STF STM STL STR
-
+ 
 %% -- flip left-sided lesions to a common hemispheric orientation
-
+ 
 % -- create copies of ERP and TEP data structures
 erpf = erp;
 tepf = tep;
-
+ 
 % -- define homologous left and right hemisphere channels
 ch_l = {'Fp1', 'AF7', 'AF3', 'FT9', 'F7', 'F5', 'F3', 'F1', 'FT7', 'FC5', 'FC3', 'FC1', 'T7', 'C5', 'C3', 'C1', 'TP7', 'CP5', 'CP3', 'CP1', 'P7', 'P5', 'P3', 'P1', 'TP9', 'PO7', 'PO3', 'O1'};
 ch_r = {'Fp2', 'AF8', 'AF4', 'FT10', 'F8', 'F6', 'F4', 'F2', 'FT8', 'FC6', 'FC4', 'FC2', 'T8', 'C6', 'C4', 'C2', 'TP8', 'CP6', 'CP4', 'CP2', 'P8', 'P6', 'P4', 'P2', 'TP10', 'PO8', 'PO4', 'O2'};
-
+ 
 % -- select participants with left-sided lesions
 [cerp, ix] = nin_subselect_dstruct(erp, 'Lesion_Hand', 'L');
 [ctep, ~] = nin_subselect_dstruct(tep, 'Lesion_Hand', 'L');
 ix = find(ix);
-
+ 
 k = 1;
 while k <= size(cerp, 2)
-
+ 
     % -- initialize flipped data matrices
     ndata_mean = cerp(k).dataMEAN;
     ndata_std = cerp(k).dataSTD;
     ndata_sem = cerp(k).dataSEM;
     ndata_tep = ctep(k).data;
-
+ 
     kc = 1;
     while kc <= length(ch_l)
-
+ 
         % -- identify corresponding left and right hemisphere channels
         ix_l = strcmpi(cerp(k).data_rows, ch_l{kc});
         ix_r = strcmpi(cerp(k).data_rows, ch_r{kc});
-
+ 
         % -- swap left and right hemisphere data
         ndata_mean(ix_r, :) = cerp(k).dataMEAN(ix_l, :);
         ndata_mean(ix_l, :) = cerp(k).dataMEAN(ix_r, :);
-
+ 
         ndata_std(ix_r, :) = cerp(k).dataSTD(ix_l, :);
         ndata_std(ix_l, :) = cerp(k).dataSTD(ix_r, :);
-
+ 
         ndata_sem(ix_r, :) = cerp(k).dataSEM(ix_l, :);
         ndata_sem(ix_l, :) = cerp(k).dataSEM(ix_r, :);
-
+ 
         ndata_tep(ix_r, :) = ctep(k).data(ix_l, :);
         ndata_tep(ix_l, :) = ctep(k).data(ix_r, :);
-
+ 
         kc = kc + 1;
-
+ 
     end
-
+ 
     % -- update ERP structure with flipped data
     erpf(ix(k)).dataMEAN = ndata_mean;
     erpf(ix(k)).dataSTD = ndata_std;
     erpf(ix(k)).dataSEM = ndata_sem;
-
+ 
     % -- swap lesion and paretic/dominant side labels
     erpf(ix(k)).Parethic_Dominant_Side = cerp(k).Lesion_Hand;
     erpf(ix(k)).Lesion_Hand = cerp(k).Parethic_Dominant_Side;
-
+ 
     % -- update TEP structure with flipped data
     tepf(ix(k)).dataMEAN = ndata_mean;
     tepf(ix(k)).dataSTD = ndata_std;
@@ -524,17 +465,27 @@ while k <= size(cerp, 2)
     tepf(ix(k)).data = ndata_tep;
     tepf(ix(k)).Parethic_Dominant_Side = ctep(k).Lesion_Hand;
     tepf(ix(k)).Lesion_Hand = ctep(k).Parethic_Dominant_Side;
-
+ 
     k = k + 1;
-
+ 
 end
-
+ 
 clear ndata_mean ndata_sem ndata_std ndata_tep ix cerp ctep ix_l ix_r kc
-
+ 
 %% -- compute group-level ERP and TEP averages
-
+ 
 % -- group ERP data by experimental condition
 cdata = erpf;
+fs = 1000; 
+[cc, ix_s] = nin_subselect_dstruct(cdata, 'stimulation', 'TMS', 'visit', 'V5', 'stim_side', 'Ipsilesional', 'tphase', 'all', 'sub', 'HeIn');
+signal = cc.dataMEAN(6, :);
+% bandpass 1-100 Hz
+[b_bp, a_bp] = butter(4, [1 80] / (fs/2), 'bandpass');
+signal_filtered = filtfilt(b_bp, a_bp, signal);
+% notch 48-52 Hz
+[b_bs, a_bs] = butter(4, [48 52] / (fs/2), 'stop');
+signal_filtered = filtfilt(b_bs, a_bs, signal_filtered);
+cdata(ix_s).dataMEAN(6, :) = signal_filtered;
 cdata_group = nin_group_data(cdata, {'dataMEAN'}, {'visit', 'stimulation', 'stim_side', 'tphase'});
 % -- add channel and time information
 [cdata_group.data_rows] = deal(cdata(1).data_rows);
@@ -546,52 +497,52 @@ cdata_group = nin_group_data(cdata, {'dataMEAN'}, {'visit', 'stimulation', 'stim
 % -- add side information
 [cdata_group.Parethic_Dominant_Side] = deal(cdata(1).Parethic_Dominant_Side);
 [cdata_group.Lesion_Hand] = deal(cdata(1).Lesion_Hand);
-
+ 
 % -- preserve grouped ERP data
 erpf_group = cdata_group;
-
+ 
 % -- compute sample counts and grand-average ERP
 cdata_group = nin_function(cdata_group, @(x) nnz(squeeze(~isnan(x(1, 1, :)))), {'dataMEAN'}, {'n'});
 cdata_group = nin_function(cdata_group, @(x) size(x, 3), {'dataMEAN'}, {'N'});
 cdata_group = nin_function(cdata_group, @(x) mean(x, 3, 'omitnan'), {'dataMEAN'}, {'data'});
 % -- remove raw grouped ERP data
 cdata_group = rmfield(cdata_group, 'dataMEAN');
-
+ 
 % -- store grand-average ERP data
 erpf_avg = cdata_group;
-
+ 
 % -- group TEP data by experimental condition
 cdata = tepf;
 cdata_group = nin_group_data(cdata, {'data'}, {'stimulation', 'visit', 'stim_side', 'tphase'});
-
+ 
 % -- add channel and time information
 [cdata_group.data_rows] = deal(cdata(1).data_rows);
 [cdata_group.data_columns] = deal(cdata(1).data_columns);
-
+ 
 % -- assign participant group labels
 [cdata_group.Condition] = deal('ST');
 [cdata_group(strcmpi({cdata_group.stim_side}, 'Dominant')).Condition] = deal('HC');
 [cdata_group(strcmpi({cdata_group.stim_side}, 'Nondominant')).Condition] = deal('HC');
-
+ 
 % -- add side information
 [cdata_group.Parethic_Dominant_Side] = deal(cdata(1).Parethic_Dominant_Side);
 [cdata_group.Lesion_Hand] = deal(cdata(1).Lesion_Hand);
-
+ 
 % -- preserve grouped TEP data
 tepf_group = cdata_group;
-
+ 
 % -- compute sample counts and grand-average TEP
 cdata_group = nin_function(cdata_group, @(x) nnz(squeeze(~isnan(x(1, 1, :)))), {'data'}, {'n'});
 cdata_group = nin_function(cdata_group, @(x) size(x, 3), {'data'}, {'N'});
 cdata_group = nin_function(cdata_group, @(x) mean(x, 3, 'omitnan'), {'data'}, {'data'});
-
+ 
 % -- store grand-average TEP data
 tepf_avg = cdata_group;
-
+ 
 clear cdata cdata_group
-
+ 
 %% -- compute between-group TEP differences
-
+ 
 % -- initialize TEP statistics structure
 tepf_stat = [];
 k = 1;
@@ -600,158 +551,158 @@ cparam.cstim1 = 'TMS'; cparam.cstim2 = 'TMS';
 cparam.cvisit1 = 'V2'; cparam.cvisit2 = 'V1';
 cparam.cstimside1 = 'Contralesional'; cparam.cstimside2 = 'Dominant';
 cparam.cphase1 = 'all'; cparam.cphase2 = 'all';
-
+ 
 % -- perform independent-samples t-test
 [cstat, cstat_topo, cdata_diff] = erp_ttests(cparam, 'ttest2', tepf, tepf_avg);
-
+ 
 % -- store statistical results and grand-average differences
 tepf_stat = [tepf_stat, cstat];
 tepf_stat_topo(k) = cstat_topo;
 tepf_avg_diff(k) = cdata_diff;
-
+ 
 clear cdata_diff cstat cstat_topo cparam
-
+ 
 k = k + 1;
 % -- TMS: HC vs ST, Nondominant vs Ipsilesional, V1 vs V2
 cparam.cstim1 = 'TMS'; cparam.cstim2 = 'TMS';
 cparam.cvisit1 = 'V2'; cparam.cvisit2 = 'V1';
 cparam.cstimside1 = 'Ipsilesional'; cparam.cstimside2 = 'Nondominant';
 cparam.cphase1 = 'all'; cparam.cphase2 = 'all';
-
+ 
 % -- perform independent-samples t-test
 [cstat, cstat_topo, cdata_diff] = erp_ttests(cparam, 'ttest2', tepf, tepf_avg);
-
+ 
 % -- store statistical results and grand-average differences
 tepf_stat = [tepf_stat, cstat];
 tepf_stat_topo(k) = cstat_topo;
 tepf_avg_diff(k) = cdata_diff;
-
+ 
 clear cdata_diff cstat cstat_topo cparam
-
-
+ 
+ 
 % -- TMS and TMS: HC vs TMS, Dominant vs Contralesional, V1 vs V5
 if any(strcmpi(cvisitALL, 'V1')) && any(strcmpi(cvisitALL, 'V5'))
     cparam.cstim1 = 'TMS'; cparam.cstim2 = 'TMS';
     cparam.cvisit1 = 'V5'; cparam.cvisit2 = 'V1';
     cparam.cstimside1 = 'Contralesional'; cparam.cstimside2 = 'Dominant';
     cparam.cphase1 = 'all'; cparam.cphase2 = 'all';
-
+ 
     % -- perform independent-samples t-test
     [cstat, cstat_topo, cdata_diff] = erp_ttests(cparam, 'ttest2', tepf, tepf_avg);
-
+ 
     % -- store statistical results and grand-average differences
     tepf_stat = [tepf_stat, cstat];
     tepf_stat_topo(k) = cstat_topo;
     tepf_avg_diff(k) = cdata_diff;
-
+ 
     clear cdata_diff cstat cstat_topo cparam
-
+ 
     k = k + 1;
 end
-
+ 
 % -- TMS and TMS: HC vs TMS, Nondominant vs Ipsilesional, V1 vs V5
 if any(strcmpi(cvisitALL, 'V1')) && any(strcmpi(cvisitALL, 'V5'))
     cparam.cstim1 = 'TMS'; cparam.cstim2 = 'TMS';
     cparam.cvisit1 = 'V5'; cparam.cvisit2 = 'V1';
     cparam.cstimside1 = 'Ipsilesional'; cparam.cstimside2 = 'Nondominant';
     cparam.cphase1 = 'all'; cparam.cphase2 = 'all';
-
+ 
     % -- perform independent-samples t-test
     [cstat, cstat_topo, cdata_diff] = erp_ttests(cparam, 'ttest2', tepf, tepf_avg);
-
+ 
     % -- store statistical results and grand-average differences
     tepf_stat = [tepf_stat, cstat];
     tepf_stat_topo(k) = cstat_topo;
     tepf_avg_diff(k) = cdata_diff;
-
+ 
     clear cdata_diff cstat cstat_topo cparam
-
+ 
     k = k + 1;
 end
-
+ 
 % -- TMS and TMS: ST vs ST, Contralesional vs Contralesional, V2 vs V5
 if any(strcmpi(cvisitALL, 'V2')) && any(strcmpi(cvisitALL, 'V5'))
     cparam.cstim1 = 'TMS'; cparam.cstim2 = 'TMS';
     cparam.cvisit1 = 'V5'; cparam.cvisit2 = 'V2';
     cparam.cstimside1 = 'Contralesional'; cparam.cstimside2 = 'Contralesional';
     cparam.cphase1 = 'all'; cparam.cphase2 = 'all';
-
+ 
     % -- perform independent-samples t-test
     [cstat, cstat_topo, cdata_diff] = erp_ttests(cparam, 'ttest', tepf, tepf_avg);
-
+ 
     % -- store statistical results and grand-average differences
     tepf_stat = [tepf_stat, cstat];
     tepf_stat_topo(k) = cstat_topo;
     tepf_avg_diff(k) = cdata_diff;
-
+ 
     clear cdata_diff cstat cstat_topo cparam
-
+ 
     k = k + 1;
 end
-
+ 
 % -- TMS and TMS: ST vs ST, Ipsilesional vs Ipsilesional, V2 vs V5
 if any(strcmpi(cvisitALL, 'V2')) && any(strcmpi(cvisitALL, 'V5'))
     cparam.cstim1 = 'TMS'; cparam.cstim2 = 'TMS';
     cparam.cvisit1 = 'V5'; cparam.cvisit2 = 'V2';
     cparam.cstimside1 = 'Ipsilesional'; cparam.cstimside2 = 'Ipsilesional';
     cparam.cphase1 = 'all'; cparam.cphase2 = 'all';
-
+ 
     % -- perform independent-samples t-test
     [cstat, cstat_topo, cdata_diff] = erp_ttests(cparam, 'ttest', tepf, tepf_avg);
-
+ 
     % -- store statistical results and grand-average differences
     tepf_stat = [tepf_stat, cstat];
     tepf_stat_topo(k) = cstat_topo;
     tepf_avg_diff(k) = cdata_diff;
-
+ 
     clear cdata_diff cstat cstat_topo cparam
-
+ 
     k = k + 1;
 end
-
+ 
 %% -- plot grand-average ERP responses at C3 and C4
-
+ 
 if flag_plot_group_visit_stimulation_C3_C4
-
+ 
     % -- create output folder
     pout.path_out_subfolder = [pout.path_out, 'Grand Average ERP C3 and C4\'];
     if ~exist(pout.path_out_subfolder, 'dir') && pout.saveWork
         mkdir(pout.path_out_subfolder);
     end
-
-
+ 
+ 
     % -- TMS: HC vs ST, Dominant vs Contralesional, V1 vs V2 vs V5
     cstim1 = 'TMS'; cstim2 = 'TMS'; cstim3 = 'TMS';
     cvisit1 = 'V1'; cvisit2 = 'V2'; cvisit3 = 'V5';
     cstimside1 = 'Dominant'; cstimside2 = 'Contralesional'; cstimside3 = 'Contralesional';
     cphase = 'all';
     cxrange = [-100, 500]; cyrange = [-5, 5];
-
+ 
     cdata = [nin_subselect_dstruct(erpf_avg, 'stimulation', cstim1, 'visit', cvisit1, 'stim_side', cstimside1, 'tphase', cphase);...
         nin_subselect_dstruct(erpf_avg, 'stimulation', cstim2, 'visit', cvisit2, 'stim_side', cstimside2, 'tphase', cphase);...
         nin_subselect_dstruct(erpf_avg, 'stimulation', cstim3, 'visit', cvisit3, 'stim_side', cstimside3, 'tphase', cphase)];
-
+ 
     % -- generate condition labels
     cstim_side = strcat({cdata.stimulation}, '_', {cdata.Condition}, '_', {cdata.visit}, '_', {cdata.stim_side});
     [cdata.condition] = cstim_side{:};
     cdata_1 = cdata;
-
+ 
     % -- TMS: HC vs ST, Nondominant vs Ipsilesional, V1 vs V2 vs V5
     cstim1 = 'TMS'; cstim2 = 'TMS'; cstim2 = 'TMS';
     cvisit1 = 'V1'; cvisit2 = 'V2'; cvisit3 = 'V5';
     cstimside1 = 'Nondominant'; cstimside2 = 'Ipsilesional'; cstimside3 = 'Ipsilesional';
     cphase = 'all';
     cxrange = [-100, 500]; cyrange = [-5, 5];
-
+ 
     cdata = [nin_subselect_dstruct(erpf_avg, 'stimulation', cstim1, 'visit', cvisit1, 'stim_side', cstimside1, 'tphase', cphase);...
         nin_subselect_dstruct(erpf_avg, 'stimulation', cstim2, 'visit', cvisit2, 'stim_side', cstimside2, 'tphase', cphase);...
         nin_subselect_dstruct(erpf_avg, 'stimulation', cstim3, 'visit', cvisit3, 'stim_side', cstimside3, 'tphase', cphase)];
-
+ 
     % -- generate condition labels
     cstim_side = strcat({cdata.stimulation}, '_', {cdata.Condition}, '_', {cdata.visit}, '_', {cdata.stim_side});
     [cdata.condition] = cstim_side{:};
     cdata_2 = cdata;
-
+ 
     % -- define figure formatting parameters
     fW = 17.5;
     fH = 6;
@@ -768,11 +719,11 @@ if flag_plot_group_visit_stimulation_C3_C4
     markerSize = 4;
     alphaerrorBand = 0.2;
     alphafreqHighlight = 0.25;
-
+ 
     % -- create figure and tiled layout
     h = figure('Units', 'centimeters', 'Position', [2, 2, fW, fH], 'Color', [1 1 1]);
     t = tiledlayout(1, 2, 'TileSpacing', 'tight');
-
+ 
     % -- define time range around stimulation onset
     ctime = cell2mat(cellfun(@str2num, cdata_1(1).data_columns, 'un', 0));
     ix_0 = find(ctime == 0);
@@ -780,7 +731,7 @@ if flag_plot_group_visit_stimulation_C3_C4
     sample = samplet;
     cylim = [-5 5];
     cxlim = [-50 400];
-
+ 
     % -- plot c3 erp responses
     nexttile(1);
     plot(ctime(samplet), cdata_1(1).data(strcmpi(cdata_1(1).data_rows, 'C3'), samplet), 'b', 'linewidth', lineWidth);
@@ -788,7 +739,7 @@ if flag_plot_group_visit_stimulation_C3_C4
     plot(ctime(samplet), cdata_1(2).data(strcmpi(cdata_1(2).data_rows, 'C3'), samplet), 'r', 'linewidth', lineWidth);
     plot(ctime(samplet), cdata_1(3).data(strcmpi(cdata_1(3).data_rows, 'C3'), samplet), 'Color', rgb('Green'), 'linewidth', lineWidth);
     % -- highlight stimulation window
-    fill([ctime(ix_0-10) ctime(ix_0-10) ctime(ix_0+10) ctime(ix_0+10)], [cylim fliplr(cylim)], 'k', 'FaceAlpha', 1,'linestyle','none');%%
+    fill([ctime(ix_0-2) ctime(ix_0-2) ctime(ix_0+15) ctime(ix_0+15)], [cylim fliplr(cylim)], 'k', 'FaceAlpha', 1,'linestyle','none');%%
     ylim(cylim);
     xlim(cxlim);
     title('Dominant / Contralesional', ...
@@ -796,13 +747,13 @@ if flag_plot_group_visit_stimulation_C3_C4
         'FontSize', fFontSizeSTitle, ...
         'FontWeight', fFontWeight, ...
         'interpreter', 'none');
-
+ 
     % -- format axes
     set(gca, 'FontName', fFont, ...
         'FontSize', fFontSizeTick, ...
         'FontWeight', fFontWeightTick, ...
         'LineWidth', axesLineWidth);
-
+ 
     % -- plot c4 erp responses
     nexttile(2);
     plot(ctime(samplet), cdata_2(1).data(strcmpi(cdata_2(1).data_rows, 'C4'), samplet), 'b', 'linewidth', lineWidth);
@@ -810,7 +761,7 @@ if flag_plot_group_visit_stimulation_C3_C4
     plot(ctime(samplet), cdata_2(2).data(strcmpi(cdata_2(2).data_rows, 'C4'), samplet), 'r', 'linewidth', lineWidth);
     plot(ctime(samplet), cdata_2(3).data(strcmpi(cdata_2(3).data_rows, 'C4'), samplet), 'Color', rgb('Green'), 'linewidth', lineWidth);
     % -- highlight stimulation window
-    fill([ctime(ix_0-10) ctime(ix_0-10) ctime(ix_0+10) ctime(ix_0+10)], [cylim fliplr(cylim)], 'k', 'FaceAlpha', 1,'linestyle','none');%%
+    fill([ctime(ix_0-2) ctime(ix_0-2) ctime(ix_0+15) ctime(ix_0+15)], [cylim fliplr(cylim)], 'k', 'FaceAlpha', 1,'linestyle','none');%%
     ylim(cylim);
     xlim(cxlim);
     set(gca, 'YTick', []);
@@ -824,51 +775,51 @@ if flag_plot_group_visit_stimulation_C3_C4
         'FontSize', fFontSizeTick, ...
         'FontWeight', fFontWeightTick, ...
         'LineWidth', axesLineWidth);
-
+ 
     % -- add shared axis labels
     ylabel(t,'Amplitude (\muV)','FontName', fFont, 'FontSize', fFontSize);
     xlabel(t,'Time (ms)','FontName', fFont, 'FontSize', fFontSize);
-
+ 
     % -- add legend
     l = legend('Healthy', 'Stroke - PRE', 'Stroke - POST');
     l.FontName = fFont;
     l.FontSize = fFontSizeTick;
-
+ 
     % -- save figure
     if pout.saveWork
-
+ 
         pout.fielname_out = 'ERP';
         saveas(h, [pout.path_out_subfolder, pout.fielname_out, '.fig']);
-        exportgraphics(h, [pout.path_out_subfolder, pout.fielname_out, '.png'], 'Resolution', 300);
-
+        exportgraphics(h, [pout.path_out_subfolder, pout.fielname_out, '.tiff'], 'Resolution', 300);
+ 
     end
-
+ 
     close(h);
-
+ 
 end
-
+ 
 %% -- generate grand-average TEP topographic maps
-
+ 
 if flag_topoplot_group_visit_stimulation
-
+ 
     % -- create output directory for TEP topographies
     pout.path_out_subfolder = [pout.path_out, 'Grand Average TEP\'];
     if ~exist(pout.path_out_subfolder, 'dir') && pout.saveWork
         mkdir(pout.path_out_subfolder);
     end
-
+ 
     % -- TMS: HC, Dominant, V1
     cstim = 'TMS';
     cvisit = 'V1';
     cstimside = 'Dominant';
     cphase = 'all';
     crange_topo = [-5, 5];
-
+ 
     cdata =  nin_subselect_dstruct(tepf_avg, 'stimulation', cstim, 'visit', cvisit, 'stim_side', cstimside, 'tphase', cphase);
-
+ 
     % -- generate peak-amplitude topographic maps
     h = nin_topoplot(cdata, [], 'scolumns', strcat(npeaks, '_amp'), 'crange', crange_topo);
-
+ 
     % -- add figure title and save output
     k = 1;
     while k <= length(h)
@@ -881,7 +832,7 @@ if flag_topoplot_group_visit_stimulation
         end
         k = k + 1;
     end
-
+ 
     % -- close topography figures
     k = 1;
     while k <= length(h)
@@ -890,19 +841,19 @@ if flag_topoplot_group_visit_stimulation
         end
         k = k + 1;
     end
-
+ 
     % -- TMS: HC, Nondominant, V1
     cstim = 'TMS';
     cvisit = 'V1';
     cstimside = 'Nondominant';
     cphase = 'all';
     crange_topo = [-5, 5];
-
+ 
     cdata =  nin_subselect_dstruct(tepf_avg, 'stimulation', cstim, 'visit', cvisit, 'stim_side', cstimside, 'tphase', cphase);
-
+ 
     % -- generate peak-amplitude topographic maps
     h = nin_topoplot(cdata, [], 'scolumns', strcat(npeaks, '_amp'), 'crange', crange_topo);
-
+ 
     % -- add figure title and save output
     k = 1;
     while k <= length(h)
@@ -915,7 +866,7 @@ if flag_topoplot_group_visit_stimulation
         end
         k = k + 1;
     end
-
+ 
     % -- close topography figures
     k = 1;
     while k <= length(h)
@@ -924,19 +875,19 @@ if flag_topoplot_group_visit_stimulation
         end
         k = k + 1;
     end
-
+ 
     % -- TMS: ST, Contralesional, V2
     cstim = 'TMS';
     cvisit = 'V2';
     cstimside = 'Contralesional';
     cphase = 'all';
     crange_topo = [-5, 5];
-
+ 
     cdata =  nin_subselect_dstruct(tepf_avg, 'stimulation', cstim, 'visit', cvisit, 'stim_side', cstimside, 'tphase', cphase);
-
+ 
     % -- generate peak-amplitude topographic maps
     h = nin_topoplot(cdata, [], 'scolumns', strcat(npeaks, '_amp'), 'crange', crange_topo);
-
+ 
     % -- add figure title and save output
     k = 1;
     while k <= length(h)
@@ -949,7 +900,7 @@ if flag_topoplot_group_visit_stimulation
         end
         k = k + 1;
     end
-
+ 
     % -- close topography figures
     k = 1;
     while k <= length(h)
@@ -958,19 +909,19 @@ if flag_topoplot_group_visit_stimulation
         end
         k = k + 1;
     end
-
+ 
     % -- TMS: ST, Ipsilesional, V2
     cstim = 'TMS';
     cvisit = 'V2';
     cstimside = 'Ipsilesional';
     cphase = 'all';
     crange_topo = [-5, 5];
-
+ 
     cdata =  nin_subselect_dstruct(tepf_avg, 'stimulation', cstim, 'visit', cvisit, 'stim_side', cstimside, 'tphase', cphase);
-
+ 
     % -- generate peak-amplitude topographic maps
     h = nin_topoplot(cdata, [], 'scolumns', strcat(npeaks, '_amp'), 'crange', crange_topo);
-
+ 
     % -- add figure title and save output
     k = 1;
     while k <= length(h)
@@ -983,7 +934,7 @@ if flag_topoplot_group_visit_stimulation
         end
         k = k + 1;
     end
-
+ 
     % -- close topography figures
     k = 1;
     while k <= length(h)
@@ -992,7 +943,7 @@ if flag_topoplot_group_visit_stimulation
         end
         k = k + 1;
     end
-
+ 
     % -- TMS: ST, Contralesional, V5
     if any(strcmpi(cvisitALL, 'V5'))
         cstim = 'TMS';
@@ -1000,12 +951,12 @@ if flag_topoplot_group_visit_stimulation
         cstimside = 'Contralesional';
         cphase = 'all';
         crange_topo = [-5, 5];
-
+ 
         cdata =  nin_subselect_dstruct(tepf_avg, 'stimulation', cstim, 'visit', cvisit, 'stim_side', cstimside, 'tphase', cphase);
-
+ 
         % -- generate peak-amplitude topographic maps
         h = nin_topoplot(cdata, [], 'scolumns', strcat(npeaks, '_amp'), 'crange', crange_topo);
-
+ 
         % -- add figure title and save output
         k = 1;
         while k <= length(h)
@@ -1018,7 +969,7 @@ if flag_topoplot_group_visit_stimulation
             end
             k = k + 1;
         end
-
+ 
         % -- close topography figures
         k = 1;
         while k <= length(h)
@@ -1028,7 +979,7 @@ if flag_topoplot_group_visit_stimulation
             k = k + 1;
         end
     end
-
+ 
     % -- TMS: ST, Ipsilesional, V5
     if any(strcmpi(cvisitALL, 'V5'))
         cstim = 'TMS';
@@ -1036,12 +987,12 @@ if flag_topoplot_group_visit_stimulation
         cstimside = 'Ipsilesional';
         cphase = 'all';
         crange_topo = [-5, 5];
-
+ 
         cdata =  nin_subselect_dstruct(tepf_avg, 'stimulation', cstim, 'visit', cvisit, 'stim_side', cstimside, 'tphase', cphase);
-
+ 
         % -- generate peak-amplitude topographic maps
         h = nin_topoplot(cdata, [], 'scolumns', strcat(npeaks, '_amp'), 'crange', crange_topo);
-
+ 
         % -- add figure title and save output
         k = 1;
         while k <= length(h)
@@ -1054,7 +1005,7 @@ if flag_topoplot_group_visit_stimulation
             end
             k = k + 1;
         end
-
+ 
         % -- close topography figures
         k = 1;
         while k <= length(h)
@@ -1064,27 +1015,27 @@ if flag_topoplot_group_visit_stimulation
             k = k + 1;
         end
     end
-
+ 
 end
-
+ 
 if flag_plot_group_visit_diff
-
+ 
     % -- create output directory for TEP topographies
     pout.path_out_subfolder = [pout.path_out, 'Grand Average TEP diff\'];
     if ~exist(pout.path_out_subfolder, 'dir') && pout.saveWork
         mkdir(pout.path_out_subfolder);
     end
-
+ 
     % -- TMS: HC vs ST, Dominant vs Contralesional, V1 vs V2
     ccondition = 'TMS_ST_V2_Contralesional_all - TMS_HC_V1_Dominant_all';
     crange_topo = [-2.5, 2.5];
-
+ 
     cdata =  nin_subselect_dstruct(tepf_avg_diff, 'condition', ccondition);
     cstat =  nin_subselect_dstruct(tepf_stat_topo, 'condition', ccondition);
-
+ 
     % -- generate peak-amplitude topographic maps
     h = nin_topoplot(cdata, cstat, 'scolumns', strcat(npeaks, '_amp'), 'crange', crange_topo);
-
+ 
     % -- add figure title and save output
     k = 1;
     while k <= length(h)
@@ -1097,7 +1048,7 @@ if flag_plot_group_visit_diff
         end
         k = k + 1;
     end
-
+ 
     % -- close topography figures
     k = 1;
     while k <= length(h)
@@ -1106,10 +1057,10 @@ if flag_plot_group_visit_diff
         end
         k = k + 1;
     end
-
+ 
     % -- generate statistic-amplitude topographic maps
     h = nin_topoplot(cstat, cstat, 'scolumns', strcat(npeaks, '_amp_t'), 'crange', crange_topo);
-
+ 
     % -- add figure title and save output
     k = 1;
     while k <= length(h)
@@ -1122,7 +1073,7 @@ if flag_plot_group_visit_diff
         end
         k = k + 1;
     end
-
+ 
     % -- close topography figures
     k = 1;
     while k <= length(h)
@@ -1131,17 +1082,17 @@ if flag_plot_group_visit_diff
         end
         k = k + 1;
     end
-
+ 
     % -- TMS: HC vs ST, Nondominant vs Ipsilesional, V1 vs V2
     ccondition = 'TMS_ST_V2_Ipsilesional_all - TMS_HC_V1_Nondominant_all';
     crange_topo = [-2.5, 2.5];
-
+ 
     cdata =  nin_subselect_dstruct(tepf_avg_diff, 'condition', ccondition);
     cstat =  nin_subselect_dstruct(tepf_stat_topo, 'condition', ccondition);
-
+ 
     % -- generate peak-amplitude topographic maps
     h = nin_topoplot(cdata, cstat, 'scolumns', strcat(npeaks, '_amp'), 'crange', crange_topo);
-
+ 
     % -- add figure title and save output
     k = 1;
     while k <= length(h)
@@ -1154,7 +1105,7 @@ if flag_plot_group_visit_diff
         end
         k = k + 1;
     end
-
+ 
     % -- close topography figures
     k = 1;
     while k <= length(h)
@@ -1163,10 +1114,10 @@ if flag_plot_group_visit_diff
         end
         k = k + 1;
     end
-
+ 
     % -- generate statistic-amplitude topographic maps
     h = nin_topoplot(cstat, cstat, 'scolumns', strcat(npeaks, '_amp_t'), 'crange', crange_topo);
-
+ 
     % -- add figure title and save output
     k = 1;
     while k <= length(h)
@@ -1179,7 +1130,7 @@ if flag_plot_group_visit_diff
         end
         k = k + 1;
     end
-
+ 
     % -- close topography figures
     k = 1;
     while k <= length(h)
@@ -1188,18 +1139,18 @@ if flag_plot_group_visit_diff
         end
         k = k + 1;
     end
-
+ 
     % -- TMS: HC vs ST, Dominant vs Contralesional, V1 vs V5
     if any(strcmpi(cvisitALL, 'V1')) && any(strcmpi(cvisitALL, 'V5'))
         ccondition = 'TMS_ST_V5_Contralesional_all - TMS_HC_V1_Dominant_all';
         crange_topo = [-2.5, 2.5];
-
+ 
         cdata =  nin_subselect_dstruct(tepf_avg_diff, 'condition', ccondition);
         cstat =  nin_subselect_dstruct(tepf_stat_topo, 'condition', ccondition);
-
+ 
         % -- generate peak-amplitude topographic maps
         h = nin_topoplot(cdata, cstat, 'scolumns', strcat(npeaks, '_amp'), 'crange', crange_topo);
-
+ 
         % -- add figure title and save output
         k = 1;
         while k <= length(h)
@@ -1212,7 +1163,7 @@ if flag_plot_group_visit_diff
             end
             k = k + 1;
         end
-
+ 
         % -- close topography figures
         k = 1;
         while k <= length(h)
@@ -1221,10 +1172,10 @@ if flag_plot_group_visit_diff
             end
             k = k + 1;
         end
-
+ 
         % -- generate statistic-amplitude topographic maps
         h = nin_topoplot(cstat, cstat, 'scolumns', strcat(npeaks, '_amp_t'), 'crange', crange_topo);
-
+ 
         % -- add figure title and save output
         k = 1;
         while k <= length(h)
@@ -1237,7 +1188,7 @@ if flag_plot_group_visit_diff
             end
             k = k + 1;
         end
-
+ 
         % -- close topography figures
         k = 1;
         while k <= length(h)
@@ -1247,18 +1198,18 @@ if flag_plot_group_visit_diff
             k = k + 1;
         end
     end
-
+ 
     % -- TMS: HC vs ST, Nondominant vs Ipsilesional, V1 vs V5
     if any(strcmpi(cvisitALL, 'V1')) && any(strcmpi(cvisitALL, 'V5'))
         ccondition = 'TMS_ST_V5_Ipsilesional_all - TMS_HC_V1_Nondominant_all';
         crange_topo = [-2.5, 2.5];
-
+ 
         cdata =  nin_subselect_dstruct(tepf_avg_diff, 'condition', ccondition);
         cstat =  nin_subselect_dstruct(tepf_stat_topo, 'condition', ccondition);
-
+ 
         % -- generate peak-amplitude topographic maps
         h = nin_topoplot(cdata, cstat, 'scolumns', strcat(npeaks, '_amp'), 'crange', crange_topo);
-
+ 
         % -- add figure title and save output
         k = 1;
         while k <= length(h)
@@ -1271,7 +1222,7 @@ if flag_plot_group_visit_diff
             end
             k = k + 1;
         end
-
+ 
         % -- close topography figures
         k = 1;
         while k <= length(h)
@@ -1280,10 +1231,10 @@ if flag_plot_group_visit_diff
             end
             k = k + 1;
         end
-
+ 
         % -- generate statistic-amplitude topographic maps
         h = nin_topoplot(cstat, cstat, 'scolumns', strcat(npeaks, '_amp_t'), 'crange', crange_topo);
-
+ 
         % -- add figure title and save output
         k = 1;
         while k <= length(h)
@@ -1296,7 +1247,7 @@ if flag_plot_group_visit_diff
             end
             k = k + 1;
         end
-
+ 
         % -- close topography figures
         k = 1;
         while k <= length(h)
@@ -1306,18 +1257,18 @@ if flag_plot_group_visit_diff
             k = k + 1;
         end
     end
-
+ 
     % -- TMS: ST vs ST, Contralesional vs Contralesional, V2 vs V5
     if any(strcmpi(cvisitALL, 'V2')) && any(strcmpi(cvisitALL, 'V5'))
         ccondition = 'TMS_ST_V5_Contralesional_all - TMS_ST_V2_Contralesional_all';
         crange_topo = [-2.5, 2.5];
-
+ 
         cdata =  nin_subselect_dstruct(tepf_avg_diff, 'condition', ccondition);
         cstat =  nin_subselect_dstruct(tepf_stat_topo, 'condition', ccondition);
-
+ 
         % -- generate peak-amplitude topographic maps
         h = nin_topoplot(cdata, cstat, 'scolumns', strcat(npeaks, '_amp'), 'crange', crange_topo);
-
+ 
         % -- add figure title and save output
         k = 1;
         while k <= length(h)
@@ -1330,7 +1281,7 @@ if flag_plot_group_visit_diff
             end
             k = k + 1;
         end
-
+ 
         % -- close topography figures
         k = 1;
         while k <= length(h)
@@ -1339,10 +1290,10 @@ if flag_plot_group_visit_diff
             end
             k = k + 1;
         end
-
+ 
         % -- generate statistic-amplitude topographic maps
         h = nin_topoplot(cstat, cstat, 'scolumns', strcat(npeaks, '_amp_t'), 'crange', crange_topo);
-
+ 
         % -- add figure title and save output
         k = 1;
         while k <= length(h)
@@ -1355,7 +1306,7 @@ if flag_plot_group_visit_diff
             end
             k = k + 1;
         end
-
+ 
         % -- close topography figures
         k = 1;
         while k <= length(h)
@@ -1365,18 +1316,18 @@ if flag_plot_group_visit_diff
             k = k + 1;
         end
     end
-
+ 
     % -- TMS: ST vs ST, Ipsilesional vs Ipsilesional, V2 vs V5
     if any(strcmpi(cvisitALL, 'V2')) && any(strcmpi(cvisitALL, 'V5'))
         ccondition = 'TMS_ST_V5_Ipsilesional_all - TMS_ST_V2_Ipsilesional_all';
         crange_topo = [-2.5, 2.5];
-
+ 
         cdata =  nin_subselect_dstruct(tepf_avg_diff, 'condition', ccondition);
         cstat =  nin_subselect_dstruct(tepf_stat_topo, 'condition', ccondition);
-
+ 
         % -- generate peak-amplitude topographic maps
         h = nin_topoplot(cdata, cstat, 'scolumns', strcat(npeaks, '_amp'), 'crange', crange_topo);
-
+ 
         % -- add figure title and save output
         k = 1;
         while k <= length(h)
@@ -1389,7 +1340,7 @@ if flag_plot_group_visit_diff
             end
             k = k + 1;
         end
-
+ 
         % -- close topography figures
         k = 1;
         while k <= length(h)
@@ -1398,10 +1349,10 @@ if flag_plot_group_visit_diff
             end
             k = k + 1;
         end
-
+ 
         % -- generate statistic-amplitude topographic maps
         h = nin_topoplot(cstat, cstat, 'scolumns', strcat(npeaks, '_amp_t'), 'crange', crange_topo);
-
+ 
         % -- add figure title and save output
         k = 1;
         while k <= length(h)
@@ -1414,7 +1365,7 @@ if flag_plot_group_visit_diff
             end
             k = k + 1;
         end
-
+ 
         % -- close topography figures
         k = 1;
         while k <= length(h)
@@ -1424,24 +1375,24 @@ if flag_plot_group_visit_diff
             k = k + 1;
         end
     end
-
+ 
 end
-
+ 
 %% -- perform cluster-based permutation analysis
-
-% -- create output directory for permutation results
-pout.path_out_subfolder = [pout.path_out, 'Permutation\'];
+ 
+% -- create output directory for permutation results with TEP
+pout.path_out_subfolder = [pout.path_out, 'Permutation with TEP\'];
 if ~exist(pout.path_out_subfolder, 'dir') && pout.saveWork
     mkdir(pout.path_out_subfolder);
 end
-
+ 
 % -- define plotting parameters
 latency = [25, 45, 70, 100, 180];
 fs = 1000;
 crange = [-5, 5];
 crangel = {[15 35], [35 55], [60 80], [90 120], [170 190]};
-
-
+ 
+ 
 % -- select data for HC and ST comparisons
 cdata =  [];
 k = 1;
@@ -1455,19 +1406,19 @@ while k <= length(cvisitALL)
     end
     k = k + 1;
 end
-
+ 
 ccdata = nin_function(cdata, @(x) x(:, 1:2:end-1), {'data'}, {'data'});
 [ccdata.data_columns] = deal(cdata(1).data_columns(:, 1:2:end-1));
-
+ 
 % -- group data by experimental condition
 cdata_group = nin_group_data(ccdata, {'data'}, {'visit', 'stim_side', 'condition', 'tphase', ['stimulatio' ...
     'n']});
 [cdata_group.data_rows] = deal(ccdata(1).data_rows);
 [cdata_group.data_columns] = deal(ccdata(1).data_columns);
-
+ 
 k = 1;
 while k <= size(cdata_group, 2)
-
+ 
     % -- identify significant clusters around predefined TEP peaks
     [cclu] = nin_clustering_field(cdata_group(k), [], latency);
     cclu.visit = cdata_group(k).visit;
@@ -1478,13 +1429,17 @@ while k <= size(cdata_group, 2)
     % -- convert cluster mask for visualization
     cclu.p_new = cclu.p;
     cclu.p = ~cclu.mask;
-
+ 
     % -- store clustering results
     clu(k) = cclu;
-
+cluTEP(k) = cclu;
+ 
+cluTEP(k).data = mean(cdata_group(k).data, 3, 'omitnan');
+        cluTEP(k).data_columns = strrep(cluTEP(k).data_columns, '_t', '_amp');
+ 
     % -- generate cluster topographic maps
-    h = nin_topoplot(clu(k), clu(k), 'crange', crange);
-
+    h = nin_topoplot(cluTEP(k), clu(k), 'crange', crange);
+ 
     k1 = 1;
     while k1 <= length(h)
         set(0, 'currentfigure', h(k1));
@@ -1497,7 +1452,7 @@ while k <= size(cdata_group, 2)
         end
         k1 = k1 + 1;
     end
-
+ 
     % -- close generated figures
     k1 = 1;
     while k1 <= length(h)
@@ -1506,41 +1461,41 @@ while k <= size(cdata_group, 2)
         end
         k1 = k1 + 1;
     end
-
+ 
     k = k + 1;
-
+ 
 end
-
+ 
 clear cdata ccdata cdata_group h cname cclu k1
-
+ 
 %% -- average activity across common significant channels
-
+ 
 % -- prepare clustered TEP dataset
 tepf_clustered = tepf;
-
+ 
 % -- exclude combined phase data
 tepf_clustered = tepf_clustered(strcmpi({tepf_clustered.tphase}, 'all'));
 tepf_clustered = nin_function(tepf_clustered, @(x) x(:, 1:2:end-1), {'data'}, {'data'});
 [tepf_clustered.data_columns] = deal(tepf_clustered(1).data_columns(1:2:end-1));
 [tepf_clustered.data_rows] = deal({'Clustered'});
-
+ 
 % -- preserve data for visualization
 tepf_clustered_orig = tepf_clustered;
-
+ 
 % -- create mask
 cmask_DC = false(length(tepf(1).data_rows), length(tepf_clustered(1).data_columns), 6);
 cmask_NI = false(length(tepf(1).data_rows), length(tepf_clustered(1).data_columns), 6);
-
+ 
 % -- assign cluster masks for visit v2
 cmask_DC(:, :, 2) = clu(strcmpi({clu.stim_side}, 'Contralesional') & strcmpi({clu.visit}, 'V2')).mask;
 cmask_NI(:, :, 2) = clu(strcmpi({clu.stim_side}, 'Ipsilesional') & strcmpi({clu.visit}, 'V2')).mask;
 % -- assign cluster masks for visit v5
 cmask_DC(:, :, 5) = clu(strcmpi({clu.stim_side}, 'Contralesional') & strcmpi({clu.visit}, 'V5')).mask;
 cmask_NI(:, :, 5) = clu(strcmpi({clu.stim_side}, 'Ipsilesional') & strcmpi({clu.visit}, 'V5')).mask;
-
+ 
 k = 1;
 while k <= size(tepf_clustered, 2)
-
+ 
     % -- select mask based on stimulation side and visit
     switch tepf_clustered(k).stim_side
         case {'Dominant', 'Contralesional'}
@@ -1550,28 +1505,28 @@ while k <= size(tepf_clustered, 2)
         otherwise
             cmask = false(length(tepf(1).data_rows), length(tepf_clustered(1).data_columns));
     end
-
+ 
     % -- apply cluster mask to amplitude data
     cdata = tepf_clustered(k).data;
     cdata(~cmask) = nan;
     % -- average values within the masked cluster
     cdata = mean(cdata, 'omitnan');
     tepf_clustered(k).data = cdata;
-
+ 
     k = k + 1;
-
+ 
 end
-
+ 
 clear cdata cname cmask cdata_time cdata_time2 cmask_time kv ks kp m n h th cdata1 cdata2 ix_time time tepf_clustered_plot
-
+ 
 %% -- correlation TEP with clinical measures
-
+ 
 % -- create output folder
 pout.path_out_subfolder = [pout.path_out, 'Corr with clin\'];
 if ~exist(pout.path_out_subfolder, 'dir') && pout.saveWork
     mkdir(pout.path_out_subfolder);
 end
-
+ 
 % -- define analysis parameters
 stim_side = {'Contralesional', 'Ipsilesional'};
 visit_ST = {'V2', 'V3', 'V4', 'V5', 'V6'};
@@ -1579,19 +1534,19 @@ ses_nr = 0:4;
 clinM = {'moca', 'fmue', 'arat', 'cahai', 'fmue_hand'};
 TEP = {'P25', 'N45', 'P70', 'N100', 'P180'};
 pth = 0.05;
-
+ 
 % -- iterate across stimulation sides
 k = 1;
 ks = 1;
 while ks <= length(stim_side)
-
+ 
     % -- iterate across visits
     k1 = 1;
     while k1 <= length(visit_ST)
-
+ 
         visit1 = visit_ST{k1};
         ses_nr1 = ses_nr(k1);
-
+ 
         % -- select clinical data for current session
         ix_1 = [clin.ses_nr] == ses_nr1;
         clin_1 = clin(ix_1, :);
@@ -1599,38 +1554,54 @@ while ks <= length(stim_side)
         [C, ia] = sort({clin_1.part_id}');
         clin_1 = clin_1(ia);
         csub = {clin_1.part_id}';
-
+ 
         % -- select clustered tep data for current condition
         ix_1_MD = strcmpi({tepf_clustered.stim_side}, stim_side{ks}) & strcmpi({tepf_clustered.visit}, visit1);
         cMD_1 = tepf_clustered(ix_1_MD);
-
+ 
         % -- match participants between clinical and tep datasets
         [C, ia, ib] = intersect(csub, {cMD_1.sub});
         cclin_1 = clin_1(ia, :);
         cMD_1 = reshape([cMD_1(ib).data], 5, [])';
-
+ 
         % -- iterate across clinical measures
         km = 1;
         while km <= length(clinM)
-
+ 
             cclin = clinM{km};
             x = [cclin_1.(cclin)]';
-
+ 
             % -- iterate across tep components
             kt = 1;
             while kt <= length(TEP)
-
+ 
                 % -- extract tep amplitudes
                 cMD = [TEP{kt}, '_amp'];
                 y = cMD_1(:, strcmpi(tepf_clustered(1).data_columns, cMD));
                 % -- exclude missing values
                 ix_nan = ~isnan(x) & ~isnan(y);
                 % -- compute correlation
+                ci_lo = nan;
+                ci_hi = nan;
                 if all(~ix_nan)
                     rho = nan(1, 1);
                     pval = nan(1, 1);
                 else
                     [rho, pval] = corr(x(ix_nan), y(ix_nan));
+ 
+                    % -- 95% CI via Fisher z-transformation (no toolbox needed)
+                    nEff = sum(ix_nan);
+                    if nEff > 3
+                        z = atanh(rho);
+                        se = 1 / sqrt(nEff - 3);
+                        ci = tanh(z + [-1, 1] * 1.96 * se);
+                        ci_lo = ci(1);
+                        ci_hi = ci(2);
+                    else
+                        ci_lo = nan;
+                        ci_hi = nan;
+                    end
+ 
                 end
                 % -- store correlation results
                 clin_MD(k).visit = visit1;
@@ -1641,42 +1612,75 @@ while ks <= length(stim_side)
                 clin_MD(k).y = y;
                 clin_MD(k).r = rho;
                 clin_MD(k).p = pval;
+                clin_MD(k).ci_lo = ci_lo;
+                clin_MD(k).ci_hi = ci_hi;
                 clin_MD(k).n = length(x(ix_nan));
-
+ 
                 k = k + 1;
-
+ 
                 kt = kt + 1;
-
+ 
             end
-
+ 
             km = km + 1;
-
+ 
         end
-
+ 
         k1 = k1 + 1;
-
+ 
     end
-
+ 
     ks = ks + 1;
-
+ 
 end
-
+ 
+% -- Holm-Bonferroni correction for the specific pair of correlations
+for i = 1:size(clin_MD, 2)
+    clin_MD(i).p_holm = nan(1, 1);
+end
+ 
+idxN45  = find(strcmpi({clin_MD.MD}, 'N45_amp')  & strcmpi({clin_MD.clin}, 'fmue') & ...
+               strcmpi({clin_MD.visit}, 'V5') & strcmpi({clin_MD.stim_side}, 'Ipsilesional'));
+idxN100 = find(strcmpi({clin_MD.MD}, 'N100_amp') & strcmpi({clin_MD.clin}, 'fmue') & ...
+               strcmpi({clin_MD.visit}, 'V5') & strcmpi({clin_MD.stim_side}, 'Ipsilesional'));
+ 
+pPair = [clin_MD(idxN45).p, clin_MD(idxN100).p];
+ 
+m = numel(pPair);
+[sortedP, sortIdx] = sort(pPair);
+ 
+holm_adj = nan(1, m);
+holm_adj(1) = sortedP(1) * m;
+for i = 2:m
+    holm_adj(i) = max(holm_adj(i-1), sortedP(i) * (m - i + 1));
+end
+holm_adj = min(holm_adj, 1);
+ 
+p_holm = nan(1, m);
+p_holm(sortIdx) = holm_adj;
+ 
+clin_MD(idxN45).p_holm  = p_holm(1);
+clin_MD(idxN100).p_holm = p_holm(2);
+ 
+% entries with NaN p (no valid data) get no p_holm field value assigned
+% (stays undefined / can be checked with isfield + isnan as in the plot loop)
+ 
 % -- save correlation results
 if pout.saveWork
     save([pout.path_out_subfolder, 'Corr_results.mat'], 'clin_MD', '-v7.3');
 end
-
+ 
 % -- retain significant correlations
 ix_keep = find([clin_MD.p] < pth);
-
+ 
 % -- define figure formatting parameters
 fW = 17.5;
 fH = 18;
 fFont = 'Ariel';
-fFontSize = 9;
-fFontSizeTick = 8;
-fFontSizeSTitle = 10;
-fFontSizeTitle = 11;
+fFontSize = 11;
+fFontSizeTick = 10;
+fFontSizeSTitle = 12;
+fFontSizeTitle = 13;
 fFontWeight = 'bold';
 fFontWeightTick = 'normal';
 lineWidth = 1;
@@ -1684,40 +1688,151 @@ axesLineWidth = 0.75;
 markerSize = 8;
 alphaerrorBand = 0.2;
 alphafreqHighlight = 0.25;
-
+ 
 % -- generate scatter plots for significant correlations
 k = 1;
 while k <= length(ix_keep)
-
-    h = figure('Color','w');
+ 
+        h = figure('Color','w');
     scatter(clin_MD(ix_keep(k)).x, clin_MD(ix_keep(k)).y, markerSize, 'k', 'MarkerFaceColor', 'flat');
     hold on;
-    h2 = lsline;
+ 
+    % -- fitted regression line + 95% confidence band, computed manually
+    % (no Statistics Toolbox required)
+    cx = clin_MD(ix_keep(k)).x;
+    cy = clin_MD(ix_keep(k)).y;
+    ix_valid = ~isnan(cx) & ~isnan(cy);
+    cx = cx(ix_valid);
+    cy = cy(ix_valid);
+ 
+    nFit = numel(cx);
+    X = [ones(nFit, 1), cx];
+    b = X \ cy;                       % [intercept; slope]
+    yFit = X * b;
+    resid = cy - yFit;
+    dfFit = nFit - 2;
+    mse = sum(resid.^2) / dfFit;
+ 
+    xGrid = linspace(min(cx), max(cx), 100)';
+    XGrid = [ones(100, 1), xGrid];
+    yGrid = XGrid * b;
+ 
+    xMean = mean(cx);
+    Sxx = sum((cx - xMean).^2);
+    seFit = sqrt(mse * (1/nFit + ((xGrid - xMean).^2) / Sxx));
+    tCrit = tinv(0.975, dfFit); % if Statistics Toolbox unavailable, replace
+                                 % with a fixed approximate value, e.g. 1.96
+                                 % for large n, or look up tCrit manually
+    ciUpper = yGrid + tCrit * seFit;
+    ciLower = yGrid - tCrit * seFit;
+ 
+    fill([xGrid; flipud(xGrid)], [ciUpper; flipud(ciLower)], 'r', ...
+        'FaceAlpha', alphaerrorBand, 'EdgeColor', 'none');
+ 
+    h2 = plot(xGrid, yGrid);
     h2.LineWidth = lineWidth;
     h2.Color = 'r';
-    xlabel([upper(clin_MD(ix_keep(k)).clin), ' at ', clin_MD(ix_keep(k)).visit], 'Interpreter', 'none','FontName', fFont, 'FontSize', fFontSize);
-    ylabel(['TEP - ', strrep(clin_MD(ix_keep(k)).MD, '_amp', ''), ' at ', clin_MD(ix_keep(k)).visit], 'Interpreter', 'none');
-    text(0.05, 0.9, ['r = ', num2str(clin_MD(ix_keep(k)).r, '%.2f'), ' p = ', num2str(clin_MD(ix_keep(k)).p, '%.3f')], 'Units', 'normalized','FontName', fFont, 'FontSize', fFontSize);
+ 
+    xlabel([upper(clin_MD(ix_keep(k)).clin)], 'Interpreter', 'none','FontName', fFont, 'FontSize', fFontSize);
+    ylabel([strrep(clin_MD(ix_keep(k)).MD, '_amp', ''), ' (\muV)'], 'FontName', fFont, 'FontSize', fFontSize);
+ 
+    % -- annotation now includes 95% CI for r and the Holm-adjusted p
+    % (falls back to raw p if p_holm was not computed for this entry)
+    if isfield(clin_MD(ix_keep(k)), 'p_holm') && ~isempty(clin_MD(ix_keep(k)).p_holm) && ~isnan(clin_MD(ix_keep(k)).p_holm)
+        pHolmStr = ['p_{Holm} = ', num2str(clin_MD(ix_keep(k)).p_holm, '%.3f')];
+    else
+        pHolmStr = '';
+    end
+ 
+    annotationStr = { ...
+        ['r = ', num2str(clin_MD(ix_keep(k)).r, '%.2f'), ...
+         ' [', num2str(clin_MD(ix_keep(k)).ci_lo, '%.2f'), ', ', num2str(clin_MD(ix_keep(k)).ci_hi, '%.2f'), ']'], ...
+        ['p = ', num2str(clin_MD(ix_keep(k)).p, '%.3f'), ...
+         ', p_{Holm} = ', num2str(clin_MD(ix_keep(k)).p_holm, '%.3f')] ...
+        };
+ 
+    text(0.05, 0.9, annotationStr, 'Units', 'normalized','FontName', fFont, 'FontSize', fFontSize);
+ 
     title(clin_MD(ix_keep(k)).stim_side, ...
         'FontName', fFont, ...
         'FontSize', fFontSizeSTitle, ...
         'FontWeight', fFontWeight, ...
         'interpreter', 'none');
-
     set(gca, 'FontName', fFont, ...
         'FontSize', fFontSizeTick, ...
         'FontWeight', fFontWeightTick, ...
         'LineWidth', axesLineWidth);
-
+ 
     % -- save figure
     if pout.saveWork
         saveas(h, [pout.path_out_subfolder, 'corr_', clin_MD(ix_keep(k)).clin, '_', strrep(clin_MD(ix_keep(k)).MD, 'inv', ''), '_', clin_MD(ix_keep(k)).visit, '_', clin_MD(ix_keep(k)).stim_side, '.fig']);
         exportgraphics(h, [pout.path_out_subfolder, 'corr_', clin_MD(ix_keep(k)).clin, '_', strrep(clin_MD(ix_keep(k)).MD, 'inv', ''), '_', clin_MD(ix_keep(k)).visit, '_', clin_MD(ix_keep(k)).stim_side, '.tiff'], 'Resolution', 300);
     end
-
+ 
     close(h);
-
+ 
     k = k + 1;
-
+ 
 end
-
+ 
+%% -- leave-one-participant-out diagnostic for EVERY retained correlation
+% (all TEP components, not just N45/N100), run after ix_keep has been
+% defined and clin_MD(*).p_holm has been computed for the full family.
+%
+% For each retained correlation, every participant is left out in turn,
+% the correlation is refit, and the LOO r/p are compared against the
+% full-sample result to flag whether any single participant materially
+% changes the sign or significance of that correlation.
+ 
+loo_results = struct([]);
+ 
+for k = 1:length(ix_keep)
+ 
+    idx = ix_keep(k);
+ 
+    cx = clin_MD(idx).x;
+    cy = clin_MD(idx).y;
+    ix_valid = ~isnan(cx) & ~isnan(cy);
+    cx = cx(ix_valid);
+    cy = cy(ix_valid);
+    n = numel(cx);
+ 
+    r_full = clin_MD(idx).r;
+    p_full = clin_MD(idx).p;
+ 
+    r_loo = nan(n, 1);
+    p_loo = nan(n, 1);
+ 
+    for i = 1:n
+        keepIdx = true(n, 1);
+        keepIdx(i) = false;
+        [r_loo(i), p_loo(i)] = corr(cx(keepIdx), cy(keepIdx));
+    end
+ 
+    signFlip = any(sign(r_loo) ~= sign(r_full));
+    sigFlip = any((p_loo >= pth) ~= (p_full >= pth));
+    stable = ~(signFlip || sigFlip);
+ 
+    loo_results(k).clin = clin_MD(idx).clin;
+    loo_results(k).MD = clin_MD(idx).MD;
+    loo_results(k).visit = clin_MD(idx).visit;
+    loo_results(k).stim_side = clin_MD(idx).stim_side;
+    loo_results(k).r_full = r_full;
+    loo_results(k).p_full = p_full;
+    loo_results(k).r_loo = r_loo;
+    loo_results(k).p_loo = p_loo;
+    loo_results(k).r_range = max(r_loo) - min(r_loo);
+    loo_results(k).stable = stable;
+ 
+    if stable
+        stableStr = 'Stable';
+    else
+        stableStr = 'FLAGGED';
+    end
+ 
+    fprintf('%-10s %-10s %-6s %-14s r=%.3f p=%.4f  r_range=%.3f  %s\n', ...
+        loo_results(k).clin, strrep(loo_results(k).MD, '_amp', ''), ...
+        loo_results(k).visit, loo_results(k).stim_side, ...
+        r_full, p_full, loo_results(k).r_range, stableStr);
+ 
+end
